@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -eu -o pipefail
+
+cabal sandbox init
+cabal install --dependencies-only --enable-tests
+cabal configure --enable-tests
+cabal build
+
+cp dist/build/punter/punter .
