@@ -120,7 +120,7 @@ data ClientMessage =
 instance ToJSON ClientMessage where
   toJSON (HandshakeQuery{..}) =
     J.object
-      [ "me" .= hqMe
+      [ "me"    .= hqMe
       ]
   toJSON (SetupReply{..}) =
     J.object $ filterNull
@@ -164,7 +164,7 @@ instance FromJSON ServerMessage where
   parseJSON =
     J.withObject "serverMessage" $ \o -> asum
       [ do
-          hrYou <- o .: "you"
+          hrYou     <- o .: "you"
           return HandshakeReply{..}
       , do
           sqPunter  <- o .: "punter"
@@ -175,15 +175,15 @@ instance FromJSON ServerMessage where
           sqMines   <- mapO .: "mines"
           return SetupQuery{..}
       , do
-          moveO   <- o .: "move"
-          gqMoves <- moveO .: "moves"
-          gqState <- o .:? "state"
+          moveO     <- o .: "move"
+          gqMoves   <- moveO .: "moves"
+          gqState   <- o .:? "state"
           return GameplayQuery{..}
       , do
-          stopO    <- o .: "stop"
-          sqMoves  <- stopO .: "moves"
-          sqScores <- stopO .: "scores"
-          sqState  <- o .:? "state"
+          stopO     <- o .: "stop"
+          sqMoves   <- stopO .: "moves"
+          sqScores  <- stopO .: "scores"
+          sqState   <- o .:? "state"
           return ScoringQuery{..}
       , do
           tqTimeout <- o .: "timeout"
