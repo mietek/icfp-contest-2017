@@ -58,4 +58,5 @@ test-suite test
                           punter,
                           tasty,
                           tasty-discover,
-                          tasty-hunit
+                          tasty-hunit,
+                          tasty-quickcheck

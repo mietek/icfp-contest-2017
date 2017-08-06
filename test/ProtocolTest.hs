@@ -1,9 +1,10 @@
 module ProtocolTest where
 
 import qualified Data.Aeson as J
-import qualified Data.ByteString.Lazy as LBS
+import qualified Data.ByteString.Lazy.Char8 as LBS
 import Test.Tasty
 import Test.Tasty.HUnit
+import Test.Tasty.QuickCheck as QC
 
 import Definitions
 import ClientState
@@ -41,6 +42,10 @@ unit_encodePass =
       { pPunter = 0
       })
     "{\"pass\":{\"punter\":0}}"
+
+prop_encodePass = \pid ->
+  J.encode (Pass pid) ==
+    LBS.concat ["{\"pass\":{\"punter\":", LBS.pack (show pid), "}}"]
 
 unit_encodeHandshakeQuery =
   encode
