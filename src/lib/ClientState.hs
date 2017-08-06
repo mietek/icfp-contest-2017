@@ -119,11 +119,11 @@ partialSiteMapFromSites sites = SiteMap $
 
 partialSiteMapFromRivers :: [River] -> SiteMap
 partialSiteMapFromRivers rivers = SiteMap $
-  IM.fromList [(rSource, neighbourSite rTarget) | River{..} <- rivers]
+  IM.fromListWith (<>) [(rSource, neighbourSite rTarget) | River{..} <- rivers]
 
 partialSiteMapFromRevRivers :: [River] -> SiteMap
 partialSiteMapFromRevRivers rivers = SiteMap $
-  IM.fromList [(rTarget, neighbourSite rSource) | River{..} <- rivers]
+  IM.fromListWith (<>) [(rTarget, neighbourSite rSource) | River{..} <- rivers]
 
 partialSiteMapFromMineIds :: [SiteId] -> SiteMap
 partialSiteMapFromMineIds mineIds = SiteMap $
