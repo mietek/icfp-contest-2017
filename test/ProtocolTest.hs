@@ -18,14 +18,14 @@ decode json target =
 
 
 emptyClientStateJSON =
-  "{\"punterCount\":0,\"siteMap\":[],\"punterId\":0,\"claimMap\":[]}"
+  "{\"mines\":[],\"punterCount\":0,\"siteMap\":[],\"punterId\":0,\"claimMap\":[]}"
 
 
 unit_encodeClientState =
   encode
     emptyClientState
     emptyClientStateJSON
-    
+
 unit_encodeClaim =
   encode
     (Claim
@@ -37,26 +37,26 @@ unit_encodeClaim =
 
 unit_encodePass =
   encode
-    (Pass 
+    (Pass
       { pPunter = 0
       })
     "{\"pass\":{\"punter\":0}}"
-    
+
 unit_encodeHandshakeQuery =
   encode
     (HandshakeQuery
       { hqMe = "fnord"
       })
     "{\"me\":\"fnord\"}"
-    
+
 unit_encodeOnlineSetupReply =
-  encode 
+  encode
     (SetupReply
       { srReady = 0
       , srState = Nothing
       })
     "{\"ready\":0}"
-    
+
 unit_encodeOnlineGameplayReply =
   encode
     (GameplayReply

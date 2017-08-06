@@ -12,12 +12,13 @@ license-file:           LICENSE.md
 extra-source-files:     README.md, install
 synopsis:               TODO
 description:            TODO
-                        
+
 library
   hs-source-dirs:         src/lib
   exposed-modules:        Definitions,
                           Protocol,
-                          ClientState
+                          ClientState,
+                          Game
   default-language:       Haskell2010
   default-extensions:     OverloadedStrings,
                           RecordWildCards
