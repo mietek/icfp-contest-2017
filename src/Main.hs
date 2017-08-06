@@ -17,11 +17,11 @@ import Protocol
 -- NOTE: This assumes no message is smaller than 9:{"x":"y"}
 getSizedMessage :: Handle -> IO BS.ByteString
 getSizedMessage hdl = do
-  firstPart <- BS.hGetSome hdl 11
+  firstPart <- BS.hGet hdl 11
   let (lengthPart, otherPart) = BS.break ((==) ':') firstPart
       totalLength = read (BS.unpack lengthPart)
       remainingLength = totalLength - (BS.length otherPart - 1)
-  remainingPart <- BS.hGetSome hdl remainingLength
+  remainingPart <- BS.hGet hdl remainingLength
   return (BS.append (BS.tail otherPart) remainingPart)
 
 putSizedMessage :: Handle -> LBS.ByteString -> IO ()
