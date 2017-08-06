@@ -108,10 +108,6 @@ partialSiteMapFromRivers :: [River] -> SiteMap
 partialSiteMapFromRivers rivers = SiteMap $
   IM.fromList [(rSource, neighbourSite rTarget) | River{..} <- rivers]
 
-partialSiteMapFromReverseRivers :: [River] -> SiteMap
-partialSiteMapFromReverseRivers rivers = SiteMap $
-  IM.fromList [(rTarget, neighbourSite rSource) | River{..} <- rivers]
-
 partialSiteMapFromMineIds :: [SiteId] -> SiteMap
 partialSiteMapFromMineIds mineIds = SiteMap $
   IM.fromList [(sid, mineSite) | sid <- mineIds]
@@ -120,7 +116,6 @@ fullSiteMap :: [Site] -> [River] -> [SiteId] -> SiteMap
 fullSiteMap sites rivers mineIds =
      partialSiteMapFromSites sites
   <> partialSiteMapFromRivers rivers
-  <> partialSiteMapFromReverseRivers rivers
   <> partialSiteMapFromMineIds mineIds
 
 lookupSite :: SiteMap -> SiteId -> Maybe SiteInfo
