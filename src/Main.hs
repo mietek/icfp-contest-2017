@@ -6,7 +6,7 @@ import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Network.Socket as N
 import System.Exit (exitSuccess)
 import System.IO (Handle, IOMode(..), hPutStrLn, stderr, stdin, stdout)
-import System.Random (randomRIO)
+import System.Random (Random, randomRIO)
 
 import Options
 import Definitions
@@ -57,12 +57,72 @@ putClientMessage hdl msg =
 note :: String -> IO ()
 note = hPutStrLn stderr
 
-noteMove :: Move -> IO ()
-noteMove Claim{..} = note $ "Punter " ++ show cPunter ++ " claims " ++ show (cSource, cTarget)
-noteMove Pass{..}  = note $ "Punter " ++ show pPunter ++ " passes"
+noteMove :: Int -> Move -> IO ()
+noteMove pid Claim{..}
+  | pid == cPunter = note $ "Previously claimed " ++ show (cSource, cTarget)
+  | otherwise      = note $ "Punter " ++ show cPunter ++ " claims " ++ show (cSource, cTarget)
+noteMove pid Pass{..}
+  | pid == pPunter = note "Previously passed"
+  | otherwise      = note $ "Punter " ++ show pPunter ++ " passes"
 
-noteMoves :: [Move] -> IO ()
-noteMoves moves = mapM_ noteMove moves
+noteMoves :: Int -> [Move] -> IO ()
+noteMoves pid moves = mapM_ (noteMove pid) moves
+
+noteMoveToMake :: Move -> IO ()
+noteMoveToMake Claim{..} = note $ "Going to claim " ++ show (cSource, cTarget)
+noteMoveToMake Pass{..}  = note "Going to pass"
+
+
+randomValidRIO :: (Random a) => (a -> Bool) -> Int -> (a, a) -> IO (Maybe a)
+randomValidRIO isValid maxTries range = loop 0
+  where
+    loop tries
+      | tries == maxTries = return Nothing
+      | otherwise = do
+        x <- randomRIO range
+        if isValid x
+          then return (Just x)
+          else loop (tries + 1)
+
+
+pass :: ClientState -> IO Move
+pass ClientState{..} =
+  return Pass
+    { pPunter = csPunterId
+    }
+
+
+isMoveValid :: ClientState -> Move -> Bool
+isMoveValid _               Pass{..}  = True
+isMoveValid ClientState{..} Claim{..} =
+  case lookupSite csSiteMap cSource of
+    Nothing -> False
+    Just SiteInfo{..} ->
+      if not (memberSite siNeighbours cTarget)
+        then False
+        else lookupClaim csClaimMap (riverId cSource cTarget) == Nothing
+
+randomClaim :: ClientState -> IO Move
+randomClaim ClientState{..} = do
+  let maxSid = siteCount csSiteMap - 1
+  sid <- randomRIO (0, maxSid)
+  tid <- randomRIO (0, maxSid)
+  return Claim
+    { cPunter = csPunterId
+    , cSource = sid
+    , cTarget = tid
+    }
+
+randomValidMove :: ClientState -> IO Move
+randomValidMove cs = loop 0
+  where
+    loop :: Int -> IO Move
+    loop 1000 = pass cs
+    loop n    = do
+      move <- randomClaim cs
+      if isMoveValid cs move
+        then return move
+        else loop (n + 1)
 
 
 makeMove :: ClientState -> IO (Move, ClientState)
@@ -70,23 +130,8 @@ makeMove cs@ClientState{..} = do
   --
   -- TODO: Do something useful here
   --
-  claim <- randomRIO (False, True)
-  move <-
-    if claim then do
-      let maxSiteId = siteCount csSiteMap - 1
-      sourceId <- randomRIO (0, maxSiteId)
-      targetId <- randomRIO (0, maxSiteId)
-      note $ "Claiming " ++ show (sourceId, targetId)
-      return Claim
-        { cPunter = csPunterId
-        , cSource = sourceId
-        , cTarget = targetId
-        }
-    else do
-      note "Passing"
-      return Pass
-        { pPunter = csPunterId
-        }
+  move <- randomValidMove cs
+  noteMoveToMake move
   return (move, cs)
 
 
@@ -113,7 +158,7 @@ handleOfflineServerMessage msg =
         }
     GameplayQuery{..} -> do
       cs@ClientState{..} <- assertJust gqState "missing state in gameplay query"
-      noteMoves gqMoves
+      noteMoves csPunterId gqMoves
       let csBeforeMove = cs { csClaimMap = insertMoves csClaimMap gqMoves }
       (move, csAfterMove) <- makeMove csBeforeMove
       return $ Reply $ GameplayReply
@@ -129,7 +174,7 @@ handleOfflineServerMessage msg =
 
 handleOnlineServerMessage :: Maybe ClientState -> ServerMessage -> IO (ClientResponse, Maybe ClientState)
 handleOnlineServerMessage Nothing msg = do
-  note $ "Received: " ++ show msg
+  note $ "\nReceived: " ++ show msg
   case msg of
     hr@HandshakeReply{..} -> do
       Wait <- handleOfflineServerMessage hr
@@ -140,7 +185,7 @@ handleOnlineServerMessage Nothing msg = do
     _ ->
       error "unexpected server message in stateless phase"
 handleOnlineServerMessage jcs@(Just ClientState{..}) msg = do
-  note $ "Received: " ++ show msg
+  note $ "\nReceived: " ++ show msg
   case msg of
     gq@GameplayQuery{..} | gqState == Nothing -> do
       Reply gr@GameplayReply{..} <- handleOfflineServerMessage (gq { gqState = jcs })
