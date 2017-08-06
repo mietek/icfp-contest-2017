@@ -86,6 +86,13 @@ unit_decodeClientState =
     emptyClientStateJSON
     emptyClientState
 
+unit_decodeSite =
+  decode
+    "{\"id\":0,\"x\":1.0,\"y\":-1.0}"
+    (Site
+      { sId = 0
+      })
+
 unit_decodeRiver =
   decode
     "{ \"source\": 0\
@@ -143,7 +150,7 @@ unit_decodeSetupQuery =
     "{ \"punter\":  0\
     \, \"punters\": 2\
     \, \"map\":\
-    \    { \"sites\":  [0, 1]\
+    \    { \"sites\":  [{\"id\": 0}, {\"id\": 1}]\
     \    , \"rivers\": [{\"source\": 0, \"target\": 1}]\
     \    , \"mines\":  [0]\
     \    }\
@@ -151,7 +158,7 @@ unit_decodeSetupQuery =
     (SetupQuery
       { sqPunter  = 0
       , sqPunters = 2
-      , sqSites   = [0, 1]
+      , sqSites   = [Site { sId = 0 }, Site { sId = 1 }]
       , sqRivers  = [River { rSource = 0, rTarget = 1 }]
       , sqMines   = [0]
       })

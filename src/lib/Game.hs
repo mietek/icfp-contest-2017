@@ -14,7 +14,7 @@ reachable cm p1 s1 s2 =
       Just p2 -> p1 == p2
       Nothing -> False
   where
-    lookups = lookupClaim (fromSites s1 s2) cm <|> lookupClaim (fromSites s2 s1) cm
+    lookups = lookupClaim cm (fromSites s1 s2) <|> lookupClaim cm (fromSites s2 s1)
 
 distance :: SiteMap -> SiteId -> SiteId -> Int
 distance sm from to =
@@ -28,12 +28,12 @@ traverseD sm ((s,d):ss) to visited
   where
     queue = map (\x -> (x, d+1)) nextSites
     nextSites = filter (\x -> not . elem x $ (s:visited)) $ neighboursList sm s
-    
+
 neighboursList :: SiteMap -> SiteId -> [SiteId]
-neighboursList sm s = case lookupSite s sm of
+neighboursList sm s = case lookupSite sm s of
   Nothing -> []
-  Just Site{..} ->
-    siteSetToList sNeighbours
+  Just SiteInfo{..} ->
+    siteSetToList siNeighbours
 
 scores :: ClientState -> Scores
 scores ClientState{..} =

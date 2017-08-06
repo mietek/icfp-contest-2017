@@ -39,8 +39,10 @@ executable punter
                           aeson,
                           bytestring,
                           containers,
+                          network,
                           optparse-applicative,
-                          punter
+                          punter,
+                          random
                           
 test-suite test           
   type:                   exitcode-stdio-1.0

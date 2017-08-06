@@ -54,7 +54,7 @@ data ServerMessage =
   | SetupQuery
       { sqPunter  :: PunterId
       , sqPunters :: Int
-      , sqSites   :: [SiteId]
+      , sqSites   :: [Site]
       , sqRivers  :: [River]
       , sqMines   :: [SiteId]
       }

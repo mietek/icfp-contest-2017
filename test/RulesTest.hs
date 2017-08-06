@@ -21,7 +21,7 @@ trivialClientState = ClientState
 simpleSiteMap :: SiteMap
 simpleSiteMap =
   fullSiteMap
-    [0,1,2,3,4]
+    (map Site [0,1,2,3,4])
     [ River{rSource = 0, rTarget = 1}
     , River{rSource = 1, rTarget = 2}
     , River{rSource = 2, rTarget = 3}
@@ -32,7 +32,7 @@ simpleSiteMap =
 
 simpleClaimMap :: ClaimMap
 simpleClaimMap =
-    foldr (\c m -> insertClaim c 0 m) emptyClaimMap claimedRivers
+    foldr (\c m -> insertClaim m c 0) emptyClaimMap claimedRivers
   where
     claimedRivers = map fromRiver
       [ River{rSource = 1, rTarget = 2}
