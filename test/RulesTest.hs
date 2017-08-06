@@ -80,6 +80,8 @@ unit_scoreSimple =
       , sScore  = 6
       }
     ]
+prop_reachable = \s t ->
+  (reachable simpleClaimMap 0 s t) == (reachable simpleClaimMap 0 t s)
 
 unit_distance =
   distance simpleSiteMap 0 4 @?= 3
