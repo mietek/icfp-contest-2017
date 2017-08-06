@@ -225,7 +225,7 @@ instance FromJSON ClientState where
       csPunterCount <- o .: "punterCount"
       csSiteMap     <- o .: "siteMap"
       csClaimMap    <- o .: "claimMap"
-      csMines       <- o .: "mines"
+      let csMines   = SiteSet . IM.keysSet $ IM.filter (siIsMine) (unSiteMap csSiteMap)
       return ClientState{..}
 
 instance ToJSON ClientState where

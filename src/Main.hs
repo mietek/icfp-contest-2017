@@ -8,6 +8,7 @@ import System.Exit (exitSuccess)
 import System.IO (Handle, IOMode(..), hPutStrLn, stderr, stdin, stdout)
 import System.Random (Random, randomRIO)
 
+import qualified Data.IntMap.Strict as IM
 import Options
 import Definitions
 import ClientState
@@ -139,6 +140,7 @@ handleOfflineServerMessage msg =
             { csPunterId    = sqPunter
             , csPunterCount = sqPunters
             , csSiteMap     = siteMap
+            , csMines       = SiteSet . IM.keysSet $ IM.filter (siIsMine) (unSiteMap siteMap)
             }
       note $ "Site map: " ++ show siteMap
       return $ Reply $ SetupReply
@@ -160,9 +162,11 @@ handleOfflineServerMessage msg =
       cs@ClientState{..} <- assertJust snState "missing state in scoring notice"
       let newClaimMap = insertMoves csClaimMap snMoves
           lastCs = cs { csClaimMap = newClaimMap }
+      note $ "Last moves: " ++ show snMoves
       note $ "Claim map: " ++ show newClaimMap
       note $ "Scores: " ++ show (scores lastCs)
       note $ "Server Scores: " ++ show snScores
+      note $ "Client State: " ++ show cs
       return Exit
     TimeoutNotice{..} ->
       return Wait
