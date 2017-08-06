@@ -3,8 +3,9 @@ module Main where
 import Control.Monad (forever)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
+import qualified Network.Socket as N
 import System.Exit (exitSuccess)
-import System.IO (Handle, hPutStrLn, stderr, stdin, stdout)
+import System.IO (Handle, IOMode(..), hPutStrLn, stderr, stdin, stdout)
 
 import Options
 import Definitions
@@ -36,6 +37,10 @@ assertNothing :: Maybe a -> String -> IO ()
 assertNothing Nothing  _   = return ()
 assertNothing (Just _) msg = error msg
 
+assertHead :: [a] -> String -> IO a
+assertHead []      msg = error msg
+assertHead (x : _) _   = return x
+
 
 getServerMessage :: Handle -> IO ServerMessage
 getServerMessage hdl = do
@@ -58,14 +63,13 @@ data ClientResponse =
   | Exit
   deriving (Eq, Ord, Show)
 
+
 handleOfflineServerMessage :: ServerMessage -> IO ClientResponse
 handleOfflineServerMessage msg =
   case msg of
-    hr@HandshakeReply{..} -> do
-      note $ "Handshake reply received: " ++ show hr
+    HandshakeReply{..} ->
       return Wait
-    sq@SetupQuery{..} -> do
-      note $ "Setup query received: " ++ show sq
+    SetupQuery{..} -> do
       return $ Reply $ SetupReply
         { srReady = sqPunter
         , srState = Just $ emptyClientState
@@ -74,23 +78,27 @@ handleOfflineServerMessage msg =
           , csSiteMap     = fullSiteMap sqSites sqRivers sqMines
           }
         }
-    gq@GameplayQuery{..} -> do
-      note $ "Gameplay query received: " ++ show gq
+    GameplayQuery{..} -> do
       cs@ClientState{..} <- assertJust gqState "missing state in gameplay query"
+      --
+      -- TODO: Do something here
+      --
       return $ Reply $ GameplayReply
         { grMove  = Pass { pPunter = csPunterId }
         , grState = Just cs
         }
-    sn@ScoringNotice{..} -> do
-      note $ "Scoring notice received: " ++ show sn
-      cs@ClientState{..} <- assertJust snState "missing state in scoring notice"
+    ScoringNotice{..} -> do
+      ClientState{..} <- assertJust snState "missing state in scoring notice"
+      --
+      -- TODO: Do something here
+      --
       return Exit
-    tn@TimeoutNotice{..} -> do
-      note $ "Timeout notice received: " ++ show tn
+    TimeoutNotice{..} ->
       return Wait
 
 handleOnlineServerMessage :: Maybe ClientState -> ServerMessage -> IO (ClientResponse, Maybe ClientState)
-handleOnlineServerMessage Nothing msg =
+handleOnlineServerMessage Nothing msg = do
+  note $ "Received: " ++ show msg
   case msg of
     hr@HandshakeReply{..} -> do
       Wait <- handleOfflineServerMessage hr
@@ -99,11 +107,15 @@ handleOnlineServerMessage Nothing msg =
       Reply sr@SetupReply{..} <- handleOfflineServerMessage sq
       return (Reply sr { srState = Nothing }, srState)
     _ ->
-      error $ "unexpected server message in stateless phase: " ++ show msg
-handleOnlineServerMessage jcs@(Just cs@ClientState{..}) msg =
+      error "unexpected server message in stateless phase"
+handleOnlineServerMessage jcs@(Just ClientState{..}) msg = do
+  note $ "Received: " ++ show msg
   case msg of
     gq@GameplayQuery{..} | gqState == Nothing -> do
       Reply gr@GameplayReply{..} <- handleOfflineServerMessage (gq { gqState = jcs })
+      --
+      -- TODO: Do something about the game here
+      --
       return (Reply gr { grState = Nothing }, grState)
     sn@ScoringNotice{..} | snState == Nothing -> do
       Exit <- handleOfflineServerMessage (sn { snState = jcs })
@@ -112,13 +124,19 @@ handleOnlineServerMessage jcs@(Just cs@ClientState{..}) msg =
       Wait <- handleOfflineServerMessage tn
       return (Wait, jcs)
     _ ->
-      error $ "unexpected server message in stateful phase: " ++ show msg
+      error "unexpected server message in stateful phase"
 
-
-onlineMain :: String -> Int -> String -> IO ()
-onlineMain serverHost serverPort punterName = do
-  note $ "Online mode (" ++ serverHost ++ ":" ++ show serverPort ++ ")"
-  -- TODO
+performClientResponse :: Handle -> ClientResponse -> IO ()
+performClientResponse output response =
+  case response of
+    Reply reply -> do
+      note $ "Replying: " ++ show reply
+      putClientMessage output reply
+    Wait ->
+      note "Waiting..."
+    Exit -> do
+      note "Exiting..."
+      exitSuccess
 
 
 offlineMain :: String -> IO ()
@@ -128,15 +146,34 @@ offlineMain punterName = do
   forever $ do
     msg <- getServerMessage stdin
     response <- handleOfflineServerMessage msg
-    case response of
-      Reply reply -> do
-        note $ "Replying: " ++ show reply
-        putClientMessage stdout reply
-      Wait ->
-        note "Waiting..."
-      Exit -> do
-        note "Exiting..."
-        exitSuccess
+    performClientResponse stdout response
+
+
+connectToServer :: String -> Int -> IO Handle
+connectToServer host port = do
+  addresses <- N.getAddrInfo Nothing (Just host) (Just (show port))
+  address <- assertHead addresses "could not resolve server address"
+  socket <- N.socket (N.addrFamily address) N.Stream N.defaultProtocol
+  N.connect socket (N.addrAddress address)
+  hdl <- N.socketToHandle socket ReadWriteMode
+  return hdl
+
+onlineMain :: String -> Int -> String -> IO ()
+onlineMain serverHost serverPort punterName = do
+  note $ "Online mode (" ++ serverHost ++ ":" ++ show serverPort ++ ")"
+  N.withSocketsDo $ do
+    note "Connecting..."
+    hdl <- connectToServer serverHost serverPort
+    note "Connected"
+    putClientMessage hdl (HandshakeQuery { hqMe = punterName })
+    loop hdl Nothing
+  where
+    loop :: Handle -> Maybe ClientState -> IO ()
+    loop hdl cs = do
+      msg <- getServerMessage hdl
+      (response, newCS) <- handleOnlineServerMessage cs msg
+      performClientResponse hdl response
+      loop hdl newCS
 
 
 main :: IO ()
