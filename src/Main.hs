@@ -177,9 +177,6 @@ handleOnlineServerMessage jcs@(Just ClientState{..}) msg = do
   case msg of
     gq@GameplayQuery{..} | gqState == Nothing -> do
       Reply gr@GameplayReply{..} <- handleOfflineServerMessage (gq { gqState = jcs })
-      --
-      -- TODO: Do something about the game here
-      --
       return (Reply gr { grState = Nothing }, grState)
     sn@ScoringNotice{..} | snState == Nothing -> do
       Exit <- handleOfflineServerMessage (sn { snState = jcs })
