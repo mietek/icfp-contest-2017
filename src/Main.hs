@@ -85,7 +85,9 @@ isMoveValid ClientState{..} Claim{..} =
     Just SiteInfo{..} ->
       if not (memberSite siNeighbours cTarget)
         then False
-        else lookupClaim csClaimMap (riverId cSource cTarget) == Nothing
+        else
+          lookupClaim csClaimMap (riverId cSource cTarget) == Nothing &&
+          lookupClaim csClaimMap (riverId cTarget cSource) == Nothing
 
 randomClaim :: ClientState -> IO Move
 randomClaim ClientState{..} = do
