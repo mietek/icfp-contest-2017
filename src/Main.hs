@@ -1,5 +1,6 @@
 module Main where
 
+import Control.Monad (forever)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.ByteString.Lazy.Char8 as LBS
 import System.Exit (exitSuccess)
@@ -53,7 +54,7 @@ note = hPutStrLn stderr
 
 data ClientResponse =
     Reply ClientMessage
-  | NoReply
+  | Wait
   | Exit
   deriving (Eq, Ord, Show)
 
@@ -62,7 +63,7 @@ handleOfflineServerMessage msg =
   case msg of
     hr@HandshakeReply{..} -> do
       note $ "Handshake reply received: " ++ show hr
-      return NoReply
+      return Wait
     sq@SetupQuery{..} -> do
       note $ "Setup query received: " ++ show sq
       return $ Reply $ SetupReply
@@ -86,14 +87,14 @@ handleOfflineServerMessage msg =
       return Exit
     tn@TimeoutNotice{..} -> do
       note $ "Timeout notice received: " ++ show tn
-      return NoReply
+      return Wait
 
 handleOnlineServerMessage :: Maybe ClientState -> ServerMessage -> IO (ClientResponse, Maybe ClientState)
 handleOnlineServerMessage Nothing msg =
   case msg of
     hr@HandshakeReply{..} -> do
-      NoReply <- handleOfflineServerMessage hr
-      return (NoReply, Nothing)
+      Wait <- handleOfflineServerMessage hr
+      return (Wait, Nothing)
     sq@SetupQuery{..} -> do
       Reply sr@SetupReply{..} <- handleOfflineServerMessage sq
       return (Reply sr { srState = Nothing }, srState)
@@ -108,8 +109,8 @@ handleOnlineServerMessage jcs@(Just cs@ClientState{..}) msg =
       Exit <- handleOfflineServerMessage (sn { snState = jcs })
       return (Exit, jcs)
     tn@TimeoutNotice{..} -> do
-      NoReply <- handleOfflineServerMessage tn
-      return (NoReply, jcs)
+      Wait <- handleOfflineServerMessage tn
+      return (Wait, jcs)
     _ ->
       error $ "unexpected server message in stateful phase: " ++ show msg
 
@@ -124,17 +125,18 @@ offlineMain :: String -> IO ()
 offlineMain punterName = do
   note "Offline mode"
   putClientMessage stdout (HandshakeQuery { hqMe = punterName })
-  msg <- getServerMessage stdin
-  response <- handleOfflineServerMessage msg
-  case response of
-    Reply reply -> do
-      note $ "Replying: " ++ show reply
-      putClientMessage stdout reply
-    NoReply ->
-      note "No reply"
-    Exit ->
-      return ()
-  note "Exiting..."
+  forever $ do
+    msg <- getServerMessage stdin
+    response <- handleOfflineServerMessage msg
+    case response of
+      Reply reply -> do
+        note $ "Replying: " ++ show reply
+        putClientMessage stdout reply
+      Wait ->
+        note "Waiting..."
+      Exit -> do
+        note "Exiting..."
+        exitSuccess
 
 
 main :: IO ()
