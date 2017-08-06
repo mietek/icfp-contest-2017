@@ -53,6 +53,13 @@ simpleClientState = ClientState
 unit_neighboursList =
   neighboursList simpleSiteMap 1 @?= [0,2,3]
 
+unit_mergeSites =
+    mergeSites s1 s2 @?= s3
+  where
+    s1 = SiteInfo {siNeighbours = SiteSet {unSiteSet = IS.fromList [1,2]}, siIsMine = False}
+    s2 = SiteInfo {siNeighbours = SiteSet {unSiteSet = IS.fromList [3]}, siIsMine = False}
+    s3 = SiteInfo {siNeighbours = SiteSet {unSiteSet = IS.fromList [1,2,3]}, siIsMine = False}
+
 unit_siteMapSimple =
   simpleSiteMap @?= SiteMap
     { unSiteMap = IM.fromList
