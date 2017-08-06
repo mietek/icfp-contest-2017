@@ -15,7 +15,10 @@ import Definitions
 
 
 newtype SiteSet = SiteSet { unSiteSet :: IntSet } -- Key: SiteId
-  deriving (Eq, Ord, Show, FromJSON, ToJSON)
+  deriving (Eq, Ord, FromJSON, ToJSON)
+
+instance Show SiteSet where
+  show ss = show (IS.toAscList (unSiteSet ss))
 
 instance Monoid SiteSet where
   mempty  = emptySiteSet
@@ -44,7 +47,11 @@ data SiteInfo = SiteInfo
     { siNeighbours :: SiteSet
     , siIsMine     :: Bool
     }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show SiteInfo where
+  show SiteInfo{..} = "neighbours: " ++ show siNeighbours ++ "; " ++
+                      "mine: " ++ if siIsMine then "yes" else "no"
 
 instance FromJSON SiteInfo where
   parseJSON =
@@ -89,7 +96,10 @@ mineSite = emptySite
 
 
 newtype SiteMap = SiteMap { unSiteMap :: IntMap SiteInfo } -- Key: SiteId
-  deriving (Eq, Ord, Show, FromJSON, ToJSON)
+  deriving (Eq, Ord, FromJSON, ToJSON)
+
+instance Show SiteMap where
+  show sm = show (IM.toAscList (unSiteMap sm))
 
 instance Monoid SiteMap where
   mempty  = emptySiteMap
@@ -157,9 +167,19 @@ fromSites :: SiteId -> SiteId -> RiverId
 fromSites a b =
   fromRiver River{rSource = a, rTarget = b}
 
-
 newtype ClaimMap = ClaimMap { unClaimMap :: IntMap PunterId } -- Key: RiverId
-  deriving (Eq, Ord, Show, FromJSON, ToJSON)
+  deriving (Eq, Ord, FromJSON, ToJSON)
+
+instance Show ClaimMap where
+  show cm = show (map toClaim (IM.toAscList (unClaimMap cm)))
+    where
+      toClaim (rid, pid) =
+        let River{..} = toRiver rid in
+        Claim
+          { cPunter = pid
+          , cSource = rSource
+          , cTarget = rTarget
+          }
 
 emptyClaimMap :: ClaimMap
 emptyClaimMap =

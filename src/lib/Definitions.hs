@@ -13,7 +13,10 @@ type SiteId = Int
 data Site = Site
   { sId :: SiteId
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show Site where
+  show Site{..} = show sId
 
 instance FromJSON Site where
   parseJSON =
@@ -26,7 +29,10 @@ data River = River
   { rSource :: SiteId
   , rTarget :: SiteId
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show River where
+  show River{..} = show (rSource, rTarget)
 
 instance FromJSON River where
   parseJSON =
@@ -45,7 +51,11 @@ data Move =
   | Pass
       { pPunter :: PunterId
       }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show Move where
+  show Claim{..} = show cPunter ++ " claims " ++ show (cSource, cTarget)
+  show Pass{..}  = show pPunter ++ " passes"
 
 instance FromJSON Move where
   parseJSON =
@@ -85,7 +95,10 @@ data Score = Score
   { sPunter :: PunterId
   , sScore  :: Int
   }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show Score where
+  show Score{..} = show sPunter ++ " scores " ++ show sScore
 
 instance FromJSON Score where
   parseJSON =

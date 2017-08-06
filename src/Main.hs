@@ -57,21 +57,6 @@ putClientMessage hdl msg =
 note :: String -> IO ()
 note = hPutStrLn stderr
 
-noteMove :: Int -> Move -> IO ()
-noteMove pid Claim{..}
-  | pid == cPunter = note $ "Previously claimed " ++ show (cSource, cTarget)
-  | otherwise      = note $ "Punter " ++ show cPunter ++ " claims " ++ show (cSource, cTarget)
-noteMove pid Pass{..}
-  | pid == pPunter = note "Previously passed"
-  | otherwise      = note $ "Punter " ++ show pPunter ++ " passes"
-
-noteMoves :: Int -> [Move] -> IO ()
-noteMoves pid moves = mapM_ (noteMove pid) moves
-
-noteMoveToMake :: Move -> IO ()
-noteMoveToMake Claim{..} = note $ "Going to claim " ++ show (cSource, cTarget)
-noteMoveToMake Pass{..}  = note "Going to pass"
-
 
 randomValidRIO :: (Random a) => (a -> Bool) -> Int -> (a, a) -> IO (Maybe a)
 randomValidRIO isValid maxTries range = loop 0
@@ -131,7 +116,6 @@ makeMove cs@ClientState{..} = do
   -- TODO: Do something useful here
   --
   move <- randomValidMove cs
-  noteMoveToMake move
   return (move, cs)
 
 
@@ -147,27 +131,30 @@ handleOfflineServerMessage msg =
     HandshakeReply{..} ->
       return Wait
     SetupQuery{..} -> do
-      let cs = emptyClientState
+      let siteMap = fullSiteMap sqSites sqRivers sqMines
+          cs = emptyClientState
             { csPunterId    = sqPunter
             , csPunterCount = sqPunters
-            , csSiteMap     = fullSiteMap sqSites sqRivers sqMines
+            , csSiteMap     = siteMap
             }
+      note $ "Site map: " ++ show siteMap
       return $ Reply $ SetupReply
         { srReady = sqPunter
         , srState = Just cs
         }
     GameplayQuery{..} -> do
       cs@ClientState{..} <- assertJust gqState "missing state in gameplay query"
-      noteMoves csPunterId gqMoves
-      let csBeforeMove = cs { csClaimMap = insertMoves csClaimMap gqMoves }
+      let newClaimMap = insertMoves csClaimMap gqMoves
+          csBeforeMove = cs { csClaimMap = newClaimMap }
+      note $ "Claim map: " ++ show newClaimMap
       (move, csAfterMove) <- makeMove csBeforeMove
       return $ Reply $ GameplayReply
         { grMove  = move
         , grState = Just csAfterMove
         }
     ScoringNotice{..} -> do
-      cs@ClientState{..} <- assertJust snState "missing state in scoring notice"
-      note $ "Final state: " ++ show cs
+      ClientState{..} <- assertJust snState "missing state in scoring notice"
+      note $ "Claim map: " ++ show csClaimMap
       return Exit
     TimeoutNotice{..} ->
       return Wait
