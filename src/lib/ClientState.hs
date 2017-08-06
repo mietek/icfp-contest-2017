@@ -127,6 +127,10 @@ lookupSite :: SiteMap -> SiteId -> Maybe SiteInfo
 lookupSite sm sid =
   IM.lookup sid (unSiteMap sm)
 
+siteCount :: SiteMap -> Int
+siteCount sm =
+  IM.size (unSiteMap sm)
+
 
 type RiverId = Int
 
@@ -172,6 +176,10 @@ insertMoves cm moves =
 lookupClaim :: ClaimMap -> RiverId -> Maybe PunterId
 lookupClaim cm rid =
   IM.lookup rid (unClaimMap cm)
+
+claimCount :: ClaimMap -> Int
+claimCount cm =
+  IM.size (unClaimMap cm)
 
         
 data ClientState = ClientState

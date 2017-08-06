@@ -6,6 +6,7 @@ import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Network.Socket as N
 import System.Exit (exitSuccess)
 import System.IO (Handle, IOMode(..), hPutStrLn, stderr, stdin, stdout)
+import System.Random (randomRIO)
 
 import Options
 import Definitions
@@ -56,20 +57,44 @@ putClientMessage hdl msg =
 note :: String -> IO ()
 note = hPutStrLn stderr
 
-
-data ClientResponse =
-    Reply ClientMessage
-  | Wait
-  | Exit
-  deriving (Eq, Ord, Show)
-
-
 noteMove :: Move -> IO ()
 noteMove Claim{..} = note $ "Punter " ++ show cPunter ++ " claims " ++ show (cSource, cTarget)
 noteMove Pass{..}  = note $ "Punter " ++ show pPunter ++ " passes"
 
 noteMoves :: [Move] -> IO ()
 noteMoves moves = mapM_ noteMove moves
+
+
+makeMove :: ClientState -> IO (Move, ClientState)
+makeMove cs@ClientState{..} = do
+  --
+  -- TODO: Do something useful here
+  --
+  claim <- randomRIO (False, True)
+  move <-
+    if claim then do
+      let maxSiteId = siteCount csSiteMap - 1
+      sourceId <- randomRIO (0, maxSiteId)
+      targetId <- randomRIO (0, maxSiteId)
+      note $ "Claiming " ++ show (sourceId, targetId)
+      return Claim
+        { cPunter = csPunterId
+        , cSource = sourceId
+        , cTarget = targetId
+        }
+    else do
+      note "Passing"
+      return Pass
+        { pPunter = csPunterId
+        }
+  return (move, cs)
+
+
+data ClientResponse =
+    Reply ClientMessage
+  | Wait
+  | Exit
+  deriving (Eq, Ord, Show)
 
 handleOfflineServerMessage :: ServerMessage -> IO ClientResponse
 handleOfflineServerMessage msg =
@@ -88,14 +113,12 @@ handleOfflineServerMessage msg =
         }
     GameplayQuery{..} -> do
       cs@ClientState{..} <- assertJust gqState "missing state in gameplay query"
-      let newCS = cs { csClaimMap = insertMoves csClaimMap gqMoves }
       noteMoves gqMoves
-      --
-      -- TODO: Do something here
-      --
+      let csBeforeMove = cs { csClaimMap = insertMoves csClaimMap gqMoves }
+      (move, csAfterMove) <- makeMove csBeforeMove
       return $ Reply $ GameplayReply
-        { grMove  = Pass { pPunter = csPunterId }
-        , grState = Just newCS
+        { grMove  = move
+        , grState = Just csAfterMove
         }
     ScoringNotice{..} -> do
       cs@ClientState{..} <- assertJust snState "missing state in scoring notice"
