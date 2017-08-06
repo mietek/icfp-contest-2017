@@ -23,14 +23,14 @@ simpleSiteMap :: SiteMap
 simpleSiteMap =
   fullSiteMap
     (map Site [0,1,2,3,4])
-    (map (uncurry River) [(0,1),(2,3),(3,4),(1,3),(1,2)])
+    (map (uncurry River) [(0,1),(1,2),(2,3),(3,4),(1,3)])
     [1]
 
 simpleClaimMap :: ClaimMap
 simpleClaimMap =
     foldr (\c m -> insertClaim m c 0) emptyClaimMap claimedRivers
   where
-    claimedRivers = map (fromRiver . uncurry River) [(0,1),(2,3),(3,4),(1,3),(1,2)]
+    claimedRivers = map (fromRiver . uncurry River) [(1,2),(2,3),(3,4),(1,3)]
 
 
 simpleClientState :: ClientState
@@ -77,7 +77,7 @@ unit_scoreSimple =
   scores simpleClientState @?= [
     Score
       { sPunter = 0
-      , sScore  = 4
+      , sScore  = 6
       }
     ]
 
