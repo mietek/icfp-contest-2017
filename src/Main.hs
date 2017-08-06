@@ -12,6 +12,7 @@ import Options
 import Definitions
 import ClientState
 import Protocol
+import Game
 
 
 -- NOTE: This assumes no message is smaller than 9:{"x":"y"}
@@ -150,14 +151,18 @@ handleOfflineServerMessage msg =
           csBeforeMove = cs { csClaimMap = newClaimMap }
       note $ "Claim map: " ++ show newClaimMap
       (move, csAfterMove) <- makeMove csBeforeMove
+      note $ "Scores: " ++ show (scores csAfterMove)
       return $ Reply $ GameplayReply
         { grMove  = move
         , grState = Just csAfterMove
         }
     ScoringNotice{..} -> do
-      ClientState{..} <- assertJust snState "missing state in scoring notice"
-      note $ "Claim map: " ++ show csClaimMap
-      note $ "Scores: " ++ show snScores
+      cs@ClientState{..} <- assertJust snState "missing state in scoring notice"
+      let newClaimMap = insertMoves csClaimMap snMoves
+          lastCs = cs { csClaimMap = newClaimMap }
+      note $ "Claim map: " ++ show newClaimMap
+      note $ "Scores: " ++ show (scores lastCs)
+      note $ "Server Scores: " ++ show snScores
       return Exit
     TimeoutNotice{..} ->
       return Wait
