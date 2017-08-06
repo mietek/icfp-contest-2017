@@ -24,7 +24,15 @@ data ClientMessage =
       { grMove  :: Move
       , grState :: Maybe ClientState
       }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show ClientMessage where
+  show HandshakeQuery{..} = "we are " ++ hqMe
+  show SetupReply{..}     = "we are ready"
+  show GameplayReply{..}  =
+    case grMove of
+      Claim{..} -> "we claim " ++ show (cSource, cTarget)
+      Pass{..}  -> "we pass"
 
 instance ToJSON ClientMessage where
   toJSON (HandshakeQuery{..}) =
@@ -68,9 +76,20 @@ data ServerMessage =
       , snState   :: Maybe ClientState
       }
   | TimeoutNotice
-      { tnTimeout :: Float
+      { tnTimeout :: Double
       }
-  deriving (Eq, Ord, Show)
+  deriving (Eq, Ord)
+
+instance Show ServerMessage where
+  show HandshakeReply{..} = "you are " ++ hrYou
+  show SetupQuery{..}     = "your number is " ++ show sqPunter ++ "; " ++
+                            "punters: " ++ show sqPunters ++ "; " ++
+                            "sites: " ++ show sqSites ++ "; " ++
+                            "rivers: " ++ show sqRivers
+  show GameplayQuery{..}  = "moves: " ++ show gqMoves
+  show ScoringNotice{..}  = "moves: " ++ show snMoves ++ "; " ++
+                            "scores: " ++ show snScores
+  show TimeoutNotice{..}  = "you timed out after " ++ show tnTimeout ++ " seconds"
 
 instance FromJSON ServerMessage where
   parseJSON =
