@@ -37,8 +37,11 @@ scores :: ClientState -> Scores
 scores ClientState{..} =
     map (\p -> Score { sPunter = p, sScore = scoreForPunter p }) $ take csPunterCount [0..]
   where
+    scoreForPunter :: PunterId -> Int
     scoreForPunter p = sum $ map (scoreForPunterAtMine p) (siteSetToList csMines)
+    scoreForPunterAtMine :: PunterId -> SiteId -> Int
     scoreForPunterAtMine p m = traverseAndCollectPoints p m [m] 0 []
+    traverseAndCollectPoints :: PunterId -> SiteId -> [SiteId] -> Int -> [SiteId] -> Int
     traverseAndCollectPoints _ _ [] score _ = score
     traverseAndCollectPoints p m (s:ss) score visited =
         traverseAndCollectPoints p m (nextSites ++ ss) (siteScore+score) (s:visited)
