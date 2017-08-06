@@ -155,6 +155,7 @@ handleOfflineServerMessage msg =
     ScoringNotice{..} -> do
       ClientState{..} <- assertJust snState "missing state in scoring notice"
       note $ "Claim map: " ++ show csClaimMap
+      note $ "Scores: " ++ show snScores
       return Exit
     TimeoutNotice{..} ->
       return Wait
