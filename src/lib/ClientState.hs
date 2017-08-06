@@ -36,54 +36,54 @@ memberSite siteId ss =
   IS.member siteId (unSiteSet ss)
 
 
-data Site = Site
-    { sNeighbours :: SiteSet
-    , sIsMine     :: Bool
+data SiteInfo = SiteInfo
+    { siNeighbours :: SiteSet
+    , siIsMine     :: Bool
     }
   deriving (Eq, Ord, Show)
 
-instance FromJSON Site where
+instance FromJSON SiteInfo where
   parseJSON =
-    JSON.withObject "site" $ \o -> do
-      sNeighbours <- o .: "neighbours"
-      sIsMine     <- o .: "isMine"
-      return Site{..}
+    JSON.withObject "SiteInfo" $ \o -> do
+      siNeighbours <- o .: "neighbours"
+      siIsMine     <- o .: "isMine"
+      return SiteInfo{..}
   
-instance ToJSON Site where
-  toJSON Site{..} =
+instance ToJSON SiteInfo where
+  toJSON SiteInfo{..} =
     JSON.object
-      [ "neighbours" .= sNeighbours
-      , "isMine"     .= sIsMine
+      [ "neighbours" .= siNeighbours
+      , "isMine"     .= siIsMine
       ]
 
-instance Monoid Site where
+instance Monoid SiteInfo where
   mempty  = emptySite
   mappend = mergeSites
 
-emptySite :: Site
-emptySite = Site
-  { sNeighbours = emptySiteSet
-  , sIsMine     = False
+emptySite :: SiteInfo
+emptySite = SiteInfo
+  { siNeighbours = emptySiteSet
+  , siIsMine     = False
   }
 
-mergeSites :: Site -> Site -> Site
-mergeSites s1 s2 = Site
-  { sNeighbours = sNeighbours s1 <> sNeighbours s2
-  , sIsMine     = sIsMine s1 || sIsMine s2
+mergeSites :: SiteInfo -> SiteInfo -> SiteInfo
+mergeSites s1 s2 = SiteInfo
+  { siNeighbours = siNeighbours s1 <> siNeighbours s2
+  , siIsMine     = siIsMine s1 || siIsMine s2
   }
   
-neighbourSite :: SiteId -> Site
+neighbourSite :: SiteId -> SiteInfo
 neighbourSite siteId = emptySite
-  { sNeighbours = singletonSiteSet siteId
+  { siNeighbours = singletonSiteSet siteId
   }
 
-mineSite :: Site
+mineSite :: SiteInfo
 mineSite = emptySite
-  { sIsMine = True
+  { siIsMine = True
   }
 
 
-newtype SiteMap = SiteMap { unSiteMap :: IntMap Site } -- Key: SiteId
+newtype SiteMap = SiteMap { unSiteMap :: IntMap SiteInfo } -- Key: SiteId
   deriving (Eq, Ord, Show, FromJSON, ToJSON)
 
 instance Monoid SiteMap where
@@ -97,9 +97,9 @@ mergeSiteMaps :: SiteMap -> SiteMap -> SiteMap
 mergeSiteMaps sm1 sm2 = SiteMap $
   IM.unionWith (<>) (unSiteMap sm1) (unSiteMap sm2)
 
-partialSiteMapFromSiteIds :: [SiteId] -> SiteMap
-partialSiteMapFromSiteIds siteIds = SiteMap $
-  IM.fromList [(siteId, emptySite) | siteId <- siteIds]
+partialSiteMapFromSites :: [Site] -> SiteMap
+partialSiteMapFromSites sites = SiteMap $
+  IM.fromList [(sId, emptySite) | Site{..} <- sites]
   
 partialSiteMapFromRivers :: [River] -> SiteMap
 partialSiteMapFromRivers rivers = SiteMap $
@@ -113,14 +113,14 @@ partialSiteMapFromMineIds :: [SiteId] -> SiteMap
 partialSiteMapFromMineIds mineIds = SiteMap $
   IM.fromList [(siteId, mineSite) | siteId <- mineIds]
   
-fullSiteMap :: [SiteId] -> [River] -> [SiteId] -> SiteMap
-fullSiteMap siteIds rivers mineIds =
-     partialSiteMapFromSiteIds siteIds
+fullSiteMap :: [Site] -> [River] -> [SiteId] -> SiteMap
+fullSiteMap sites rivers mineIds =
+     partialSiteMapFromSites sites
   <> partialSiteMapFromRivers rivers
   <> partialSiteMapFromReverseRivers rivers
   <> partialSiteMapFromMineIds mineIds
 
-lookupSite :: SiteId -> SiteMap -> Maybe Site
+lookupSite :: SiteId -> SiteMap -> Maybe SiteInfo
 lookupSite siteId = IM.lookup siteId . unSiteMap
 
 

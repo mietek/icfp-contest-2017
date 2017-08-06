@@ -10,6 +10,18 @@ type PunterId = Int
 type SiteId = Int
 
 
+data Site = Site
+  { sId :: SiteId
+  }
+  deriving (Eq, Ord, Show)
+
+instance FromJSON Site where
+  parseJSON =
+    JSON.withObject "site" $ \o -> do
+      sId <- o .: "id"
+      return Site{..}
+
+
 data River = River
   { rSource :: SiteId
   , rTarget :: SiteId
