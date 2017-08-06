@@ -1,106 +1,15 @@
 module Protocol where
 
-import qualified Data.Aeson as J
+import qualified Data.Aeson as JSON
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.ByteString.Lazy.Char8 as LBS
 import Data.Aeson (FromJSON, ToJSON, parseJSON, toJSON, (.:), (.:?), (.=))
 import Data.Foldable (asum)
 import Data.Monoid ((<>))
 import GHC.Exts (fromList)
-        
-        
-data ClientState = ClientState
-  { csDummy :: Int
-  }
-  deriving (Eq, Ord, Show)
-  
-instance FromJSON ClientState where
-  parseJSON =
-    J.withObject "clientState" $ \o -> do
-      csDummy <- o .: "dummy"
-      return ClientState{..}
-  
-instance ToJSON ClientState where
-  toJSON ClientState{..} =
-    J.object
-      [ "dummy" .= csDummy
-      ]
 
-
-type PunterId = Int
-
-type SiteId = Int
-
-
-data River = River
-  { rSource :: SiteId
-  , rTarget :: SiteId
-  }
-  deriving (Eq, Ord, Show)
-
-instance FromJSON River where
-  parseJSON =
-    J.withObject "river" $ \o -> do
-      rSource <- o .: "source"
-      rTarget <- o .: "target"
-      return River{..}
-
-
-data Move =
-    Claim
-      { cPunter :: PunterId
-      , cSource :: SiteId
-      , cTarget :: SiteId
-      }
-  | Pass
-      { pPunter :: PunterId
-      }
-  deriving (Eq, Ord, Show)
-
-instance FromJSON Move where
-  parseJSON =
-    J.withObject "move" $ \o -> asum
-      [ do
-          claimO  <- o .: "claim"
-          cPunter <- claimO .: "punter"
-          cSource <- claimO .: "source"
-          cTarget <- claimO .: "target"
-          return Claim{..}
-      , do
-          passO   <- o .: "pass"
-          pPunter <- passO .: "punter"
-          return Pass{..}
-      ]
-
-instance ToJSON Move where
-  toJSON Claim{..} =
-    J.object
-      [ "claim" .=
-          J.object
-            [ "punter" .= cPunter
-            , "source" .= cSource
-            , "target" .= cTarget
-            ]
-      ]
-  toJSON Pass{..} =
-    J.object
-      [ "pass" .=
-          J.object
-            [ "punter" .= pPunter
-            ]
-      ]
-
-  
-data Score = Score
-  { sPunter :: PunterId
-  , sScore  :: Int
-  }
-  deriving (Eq, Ord, Show)
-
-instance FromJSON Score where
-  parseJSON =
-    J.withObject "score" $ \o -> do
-      sPunter <- o .: "punter"
-      sScore  <- o .: "score"
-      return Score{..}
+import Definitions
+import ClientState
 
 
 data ClientMessage =
@@ -119,20 +28,23 @@ data ClientMessage =
 
 instance ToJSON ClientMessage where
   toJSON (HandshakeQuery{..}) =
-    J.object
+    JSON.object
       [ "me"    .= hqMe
       ]
   toJSON (SetupReply{..}) =
-    J.object $ filterNull
+    JSON.object $ filterNull
       [ "ready" .= srReady
       , "state" .= srState
       ]
   toJSON (GameplayReply{..}) =
-    J.Object $
+    JSON.Object $
          toObject grMove
       <> fromList (filterNull
            [ "state" .= grState
            ])
+
+encodeClientMessage :: ClientMessage -> LBS.ByteString
+encodeClientMessage = JSON.encode
 
 
 data ServerMessage =
@@ -150,19 +62,19 @@ data ServerMessage =
       { gqMoves   :: [Move]
       , gqState   :: Maybe ClientState
       }
-  | ScoringQuery 
-      { sqMoves   :: [Move]
-      , sqScores  :: [Score]
-      , sqState   :: Maybe ClientState
+  | ScoringNotice
+      { snMoves   :: [Move]
+      , snScores  :: [Score]
+      , snState   :: Maybe ClientState
       }
-  | TimeoutQuery
-      { tqTimeout :: Float
+  | TimeoutNotice
+      { tnTimeout :: Float
       }
   deriving (Eq, Ord, Show)
 
 instance FromJSON ServerMessage where
   parseJSON =
-    J.withObject "serverMessage" $ \o -> asum
+    JSON.withObject "serverMessage" $ \o -> asum
       [ do
           hrYou     <- o .: "you"
           return HandshakeReply{..}
@@ -181,22 +93,25 @@ instance FromJSON ServerMessage where
           return GameplayQuery{..}
       , do
           stopO     <- o .: "stop"
-          sqMoves   <- stopO .: "moves"
-          sqScores  <- stopO .: "scores"
-          sqState   <- o .:? "state"
-          return ScoringQuery{..}
+          snMoves   <- stopO .: "moves"
+          snScores  <- stopO .: "scores"
+          snState   <- o .:? "state"
+          return ScoringNotice{..}
       , do
-          tqTimeout <- o .: "timeout"
-          return TimeoutQuery{..}
+          tnTimeout <- o .: "timeout"
+          return TimeoutNotice{..}
       ]
 
+decodeServerMessage :: BS.ByteString -> Maybe ServerMessage
+decodeServerMessage = JSON.decodeStrict'
 
-toObject :: ToJSON a => a -> J.Object
+
+toObject :: ToJSON a => a -> JSON.Object
 toObject x =
   case toJSON x of
-    J.Object o -> o
-    _          -> error "toObject: value isn't an Object"
+    JSON.Object o -> o
+    _             -> error "toObject: unexpected value"
 
-filterNull :: [(a, J.Value)] -> [(a, J.Value)]
+filterNull :: [(a, JSON.Value)] -> [(a, JSON.Value)]
 filterNull =
-    filter ((/=) J.Null . snd)
+    filter ((/=) JSON.Null . snd)

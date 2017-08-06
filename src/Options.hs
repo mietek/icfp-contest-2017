@@ -9,9 +9,10 @@ import qualified Options.Applicative as P
 
 
 data Options = Options
-  { oOnline :: Bool
-  , oHost   :: String
-  , oPort   :: Int
+  { oOnlineMode :: Bool
+  , oServerHost :: String
+  , oServerPort :: Int
+  , oPunterName :: String
   }
   deriving (Eq, Show)
 
@@ -27,33 +28,44 @@ getOptions =
 options :: Parser Options
 options =
   Options <$>
-        online
-    <*> host
-    <*> port
+        onlineMode
+    <*> serverHost
+    <*> serverPort
+    <*> punterName
 
-online :: Parser Bool
-online =
+onlineMode :: Parser Bool
+onlineMode =
   P.switch $
-       P.long "online"
+       P.long "online-mode"
     <> P.short 'o'
     <> P.help "Connect to a lambda punter server"
     
-host :: Parser String
-host =
+serverHost :: Parser String
+serverHost =
   P.option P.auto $
-       P.long "host"
+       P.long "server-host"
     <> P.short 'h'
-    <> P.metavar "HOST"
+    <> P.metavar "SERVER_HOST"
     <> P.value "punter.inf.ed.ac.uk"
     <> P.showDefault
     <> P.help "Server host"
       
-port :: Parser Int
-port =
+serverPort :: Parser Int
+serverPort =
   P.option P.auto $
-       P.long "port"
+       P.long "server-port"
     <> P.short 'p'
-    <> P.metavar "PORT"
+    <> P.metavar "SERVER_PORT"
     <> P.value 9000
     <> P.showDefault
     <> P.help "Server port"
+
+punterName :: Parser String
+punterName =
+  P.option P.auto $
+       P.long "punter-name"
+    <> P.short 'n'
+    <> P.metavar "PUNTER_NAME"
+    <> P.value "The Church of the Least Fixed Punt"
+    <> P.showDefault
+    <> P.help "Name of the lambda punter client"

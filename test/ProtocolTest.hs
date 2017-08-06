@@ -1,9 +1,12 @@
 module ProtocolTest where
 
 import qualified Data.Aeson as J
+import qualified Data.ByteString.Lazy as LBS
 import Test.Tasty
 import Test.Tasty.HUnit
 
+import Definitions
+import ClientState
 import Protocol
 
 
@@ -14,12 +17,14 @@ decode json target =
   J.decode json @?= Just target
 
 
+emptyClientStateJSON =
+  "{\"punterCount\":0,\"siteMap\":[],\"punterId\":0,\"claimMap\":[]}"
+
+
 unit_encodeClientState =
   encode
-    (ClientState
-      { csDummy = 123
-      })
-    "{\"dummy\":123}"
+    emptyClientState
+    emptyClientStateJSON
     
 unit_encodeClaim =
   encode
@@ -29,7 +34,7 @@ unit_encodeClaim =
       , cTarget = 1
       })
     "{\"claim\":{\"punter\":0,\"source\":0,\"target\":1}}"
-    
+
 unit_encodePass =
   encode
     (Pass 
@@ -64,25 +69,22 @@ unit_encodeOfflineSetupReply =
   encode
     (SetupReply
       { srReady = 0
-      , srState = Just (ClientState { csDummy = 123 })
+      , srState = Just emptyClientState
       })
-    "{\"state\":{\"dummy\":123},\"ready\":0}"
+    (LBS.concat ["{\"state\":", emptyClientStateJSON, ",\"ready\":0}"])
     
 unit_encodeOfflineGameplayReply =
   encode
     (GameplayReply
       { grMove  = Pass { pPunter = 0 }
-      , grState = Just (ClientState { csDummy = 321 })
+      , grState = Just emptyClientState
       })
-    "{\"state\":{\"dummy\":321},\"pass\":{\"punter\":0}}"
+    (LBS.concat ["{\"state\":", emptyClientStateJSON, ",\"pass\":{\"punter\":0}}"])
 
 unit_decodeClientState =
   decode
-    "{ \"dummy\": 123\
-    \}"
-    (ClientState
-      { csDummy = 123
-      })
+    emptyClientStateJSON
+    emptyClientState
 
 unit_decodeRiver =
   decode
@@ -171,7 +173,7 @@ unit_decodeOnlineGameplayQuery =
       , gqState = Nothing
       })
 
-unit_decodeOnlineScoringQuery =
+unit_decodeOnlineScoringNotice =
   decode
     "{ \"stop\":\
     \  { \"moves\":\
@@ -181,53 +183,49 @@ unit_decodeOnlineScoringQuery =
     \  , \"scores\": [ { \"punter\": 1, \"score\": 999999999 }]\
     \  }\
     \}"
-    (ScoringQuery 
-      { sqMoves  =
+    (ScoringNotice
+      { snMoves  =
           [ Claim { cPunter = 1, cSource = 0, cTarget = 1 }
           , Pass { pPunter = 0 }
           ]
-      , sqScores = [Score { sPunter = 1, sScore = 999999999 }]
-      , sqState  = Nothing
+      , snScores = [Score { sPunter = 1, sScore = 999999999 }]
+      , snState  = Nothing
       })
 
 unit_decodeOfflineGameplayQuery =
   decode 
-    "{ \"move\":\
-    \  { \"moves\":\
-    \    [ { \"claim\": { \"punter\": 1, \"source\": 0, \"target\": 1 } }\
-    \    , { \"pass\":  { \"punter\": 0 } }\
-    \    ]\
-    \  }\
-    \, \"state\":\
-    \  { \"dummy\": 123\
-    \  }\
-    \}"
+    (LBS.concat [
+      "{ \"move\":\
+      \  { \"moves\":\
+      \    [ { \"claim\": { \"punter\": 1, \"source\": 0, \"target\": 1 } }\
+      \    , { \"pass\":  { \"punter\": 0 } }\
+      \    ]\
+      \  }\
+      \, \"state\":", emptyClientStateJSON, "}"])
     (GameplayQuery
       { gqMoves =
           [ Claim { cPunter = 1, cSource = 0, cTarget = 1 }
           , Pass { pPunter = 0 }
           ]
-      , gqState = Just (ClientState { csDummy = 123 })
+      , gqState = Just emptyClientState
       })
 
-unit_decodeOfflineScoringQuery =
+unit_decodeOfflineScoringNotice =
   decode 
-    "{ \"stop\":\
-    \  { \"moves\":\
-    \    [ { \"claim\": { \"punter\": 0, \"source\": 1, \"target\": 0 } }\
-    \    , { \"pass\":  { \"punter\": 1 } }\
-    \    ]\
-    \  , \"scores\": [ { \"punter\": 0, \"score\": 999999999 }]\
-    \  }\
-    \, \"state\":\
-    \  { \"dummy\": 321\
-    \  }\
-    \}"
-    (ScoringQuery
-      { sqMoves  =
+    (LBS.concat [
+      "{ \"stop\":\
+      \  { \"moves\":\
+      \    [ { \"claim\": { \"punter\": 0, \"source\": 1, \"target\": 0 } }\
+      \    , { \"pass\":  { \"punter\": 1 } }\
+      \    ]\
+      \  , \"scores\": [ { \"punter\": 0, \"score\": 999999999 }]\
+      \  }\
+      \, \"state\":", emptyClientStateJSON, "}"])
+    (ScoringNotice
+      { snMoves  =
           [ Claim { cPunter = 0, cSource = 1, cTarget = 0 }
           , Pass { pPunter = 1 }
           ]
-      , sqScores = [Score { sPunter = 0, sScore = 999999999 }]
-      , sqState  = Just (ClientState { csDummy = 321 })
+      , snScores = [Score { sPunter = 0, sScore = 999999999 }]
+      , snState  = Just emptyClientState
       })
