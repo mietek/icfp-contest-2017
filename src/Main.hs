@@ -64,34 +64,42 @@ data ClientResponse =
   deriving (Eq, Ord, Show)
 
 
+noteMove :: Move -> IO ()
+noteMove Claim{..} = note $ "Punter " ++ show cPunter ++ " claims " ++ show (cSource, cTarget)
+noteMove Pass{..}  = note $ "Punter " ++ show pPunter ++ " passes"
+
+noteMoves :: [Move] -> IO ()
+noteMoves moves = mapM_ noteMove moves
+
 handleOfflineServerMessage :: ServerMessage -> IO ClientResponse
 handleOfflineServerMessage msg =
   case msg of
     HandshakeReply{..} ->
       return Wait
     SetupQuery{..} -> do
+      let cs = emptyClientState
+            { csPunterId    = sqPunter
+            , csPunterCount = sqPunters
+            , csSiteMap     = fullSiteMap sqSites sqRivers sqMines
+            }
       return $ Reply $ SetupReply
         { srReady = sqPunter
-        , srState = Just $ emptyClientState
-          { csPunterId    = sqPunter
-          , csPunterCount = sqPunters
-          , csSiteMap     = fullSiteMap sqSites sqRivers sqMines
-          }
+        , srState = Just cs
         }
     GameplayQuery{..} -> do
       cs@ClientState{..} <- assertJust gqState "missing state in gameplay query"
+      let newCS = cs { csClaimMap = insertMoves csClaimMap gqMoves }
+      noteMoves gqMoves
       --
       -- TODO: Do something here
       --
       return $ Reply $ GameplayReply
         { grMove  = Pass { pPunter = csPunterId }
-        , grState = Just cs
+        , grState = Just newCS
         }
     ScoringNotice{..} -> do
-      ClientState{..} <- assertJust snState "missing state in scoring notice"
-      --
-      -- TODO: Do something here
-      --
+      cs@ClientState{..} <- assertJust snState "missing state in scoring notice"
+      note $ "Final state: " ++ show cs
       return Exit
     TimeoutNotice{..} ->
       return Wait

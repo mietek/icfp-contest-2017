@@ -7,6 +7,7 @@ import Data.Aeson (FromJSON, ToJSON, parseJSON, toJSON, (.:), (.=))
 import qualified Data.IntMap.Strict as IM
 import Data.IntMap.Strict (IntMap)
 import qualified Data.IntSet as IS
+import Data.List (foldl')
 import Data.IntSet (IntSet)
 import Data.Monoid ((<>))
 
@@ -21,19 +22,20 @@ instance Monoid SiteSet where
   mappend = mergeSiteSets
   
 emptySiteSet :: SiteSet
-emptySiteSet = SiteSet IS.empty
+emptySiteSet =
+  SiteSet IS.empty
 
 mergeSiteSets :: SiteSet -> SiteSet -> SiteSet
 mergeSiteSets ss1 ss2 = SiteSet $
   IS.union (unSiteSet ss1) (unSiteSet ss2)
   
 singletonSiteSet :: SiteId -> SiteSet
-singletonSiteSet siteId = SiteSet $
-  IS.singleton siteId
+singletonSiteSet sid = SiteSet $
+  IS.singleton sid
   
-memberSite :: SiteId -> SiteSet -> Bool
-memberSite siteId ss =
-  IS.member siteId (unSiteSet ss)
+memberSite :: SiteSet -> SiteId -> Bool
+memberSite ss sid =
+  IS.member sid (unSiteSet ss)
 
 
 data SiteInfo = SiteInfo
@@ -73,8 +75,8 @@ mergeSites s1 s2 = SiteInfo
   }
   
 neighbourSite :: SiteId -> SiteInfo
-neighbourSite siteId = emptySite
-  { siNeighbours = singletonSiteSet siteId
+neighbourSite sid = emptySite
+  { siNeighbours = singletonSiteSet sid
   }
 
 mineSite :: SiteInfo
@@ -91,7 +93,8 @@ instance Monoid SiteMap where
   mappend = mergeSiteMaps
   
 emptySiteMap :: SiteMap
-emptySiteMap = SiteMap IM.empty
+emptySiteMap =
+  SiteMap IM.empty
 
 mergeSiteMaps :: SiteMap -> SiteMap -> SiteMap
 mergeSiteMaps sm1 sm2 = SiteMap $
@@ -111,7 +114,7 @@ partialSiteMapFromReverseRivers rivers = SiteMap $
 
 partialSiteMapFromMineIds :: [SiteId] -> SiteMap
 partialSiteMapFromMineIds mineIds = SiteMap $
-  IM.fromList [(siteId, mineSite) | siteId <- mineIds]
+  IM.fromList [(sid, mineSite) | sid <- mineIds]
   
 fullSiteMap :: [Site] -> [River] -> [SiteId] -> SiteMap
 fullSiteMap sites rivers mineIds =
@@ -120,18 +123,27 @@ fullSiteMap sites rivers mineIds =
   <> partialSiteMapFromReverseRivers rivers
   <> partialSiteMapFromMineIds mineIds
 
-lookupSite :: SiteId -> SiteMap -> Maybe SiteInfo
-lookupSite siteId = IM.lookup siteId . unSiteMap
+lookupSite :: SiteMap -> SiteId -> Maybe SiteInfo
+lookupSite sm sid =
+  IM.lookup sid (unSiteMap sm)
 
 
 type RiverId = Int
 
-fromRiver :: River -> RiverId
-fromRiver River{..} = rSource * 1000000000 + rTarget
+lots :: Int
+lots = 1000000000
 
-fromRiverId :: RiverId -> River
-fromRiverId riverId =
-  let (rSource, rTarget) = quotRem riverId 1000000000 in
+riverId :: Int -> Int -> RiverId
+riverId source target =
+  source * lots + target
+
+fromRiver :: River -> RiverId
+fromRiver River{..} =
+  riverId rSource rTarget
+
+toRiver :: RiverId -> River
+toRiver rid =
+  let (rSource, rTarget) = quotRem rid lots in
   River{..}
 
 
@@ -139,17 +151,27 @@ newtype ClaimMap = ClaimMap { unClaimMap :: IntMap PunterId } -- Key: RiverId
   deriving (Eq, Ord, Show, FromJSON, ToJSON)
   
 emptyClaimMap :: ClaimMap
-emptyClaimMap = ClaimMap IM.empty
+emptyClaimMap =
+  ClaimMap IM.empty
 
-insertClaim :: RiverId -> PunterId -> ClaimMap -> ClaimMap
-insertClaim riverId punterId cm =
-  if IM.member riverId (unClaimMap cm)
-    then error $ "duplicate riverId: " ++ show riverId
+insertClaim :: ClaimMap -> RiverId -> PunterId -> ClaimMap
+insertClaim cm rid pid =
+  if IM.member rid (unClaimMap cm)
+    then error $ "duplicate riverId: " ++ show rid
     else ClaimMap $
-      IM.insert riverId punterId (unClaimMap cm)
+      IM.insert rid pid (unClaimMap cm)
 
-lookupClaim :: RiverId -> ClaimMap -> Maybe PunterId
-lookupClaim riverId = IM.lookup riverId . unClaimMap
+insertMove :: ClaimMap -> Move -> ClaimMap
+insertMove cm Pass{..}  = cm
+insertMove cm Claim{..} = insertClaim cm (riverId cSource cTarget) cPunter
+
+insertMoves :: ClaimMap -> [Move] -> ClaimMap
+insertMoves cm moves =
+  foldl' insertMove cm moves
+
+lookupClaim :: ClaimMap -> RiverId -> Maybe PunterId
+lookupClaim cm rid =
+  IM.lookup rid (unClaimMap cm)
 
         
 data ClientState = ClientState
