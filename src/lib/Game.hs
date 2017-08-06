@@ -46,5 +46,5 @@ scores ClientState{..} =
         traverseAndCollectPoints p m (nextSites ++ ss) (siteScore+score) (s:visited)
       where
         siteScore = (distance csSiteMap m s)^2
-        nextSites = filter (\x -> not . elem x $ (s:visited)) $ reachableNeighbours
+        nextSites = filter (\x -> not . elem x $ (ss++s:visited)) $ reachableNeighbours
         reachableNeighbours = filter (reachable csClaimMap p s) $ neighboursList csSiteMap s
