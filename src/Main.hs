@@ -167,6 +167,8 @@ fancyMove cs = do
   sid1 <- forkIO (simulator mbox ibox1)
   sid2 <- forkIO (simulator mbox ibox2)
   Output (finO, s) <- supervisor mbox (Input (cs, ms)) (Output (Pass { pPunter = csPunterId cs}, 0.0))
+  killThread sid1
+  killThread sid2
   return finO
 
 
