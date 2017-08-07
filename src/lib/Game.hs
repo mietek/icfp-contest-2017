@@ -3,6 +3,7 @@ module Game where
 import Definitions
 import ClientState
 import Control.Applicative ((<|>))
+import qualified Data.IntMap.Strict as IM
 
 type Scores = [Score]
 
@@ -32,6 +33,20 @@ neighboursList sm s = case lookupSite sm s of
   Nothing -> []
   Just SiteInfo{..} ->
     siteSetToList siNeighbours
+
+freeRivers :: ClientState -> [River]
+freeRivers ClientState{..} =
+    IM.foldrWithKey reduce [] (unSiteMap csSiteMap)
+  where
+    reduce site SiteInfo{..} acc = (freeConnections site siNeighbours) ++ acc
+    freeConnections s ns = filter isFree $ orderedRivers s ns
+    isFree r = case (lookupClaim csClaimMap $ fromRiver r) of
+      Just (-1) -> True
+      Nothing -> True
+      _ -> False
+    orderedRivers s ns = filter (\r -> rSource r < rTarget r) $ rivers s ns
+    rivers s ns = map (\x -> River s x) $ siteSetToList ns
+
 
 scores :: ClientState -> Scores
 scores ClientState{..} =

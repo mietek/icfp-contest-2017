@@ -7,6 +7,7 @@ import qualified Network.Socket as N
 import System.Exit (exitSuccess)
 import System.IO (Handle, IOMode(..), hPutStrLn, stderr, stdin, stdout)
 import System.Random (Random, randomRIO)
+import Data.List (maximumBy, find)
 
 import qualified Data.IntMap.Strict as IM
 import Options
@@ -91,6 +92,7 @@ isMoveValid ClientState{..} Claim{..} =
           lookupClaim csClaimMap (riverId cSource cTarget) == Nothing &&
           lookupClaim csClaimMap (riverId cTarget cSource) == Nothing
 
+
 randomClaim :: ClientState -> IO Move
 randomClaim ClientState{..} = do
   let maxSid = siteCount csSiteMap - 1
@@ -101,6 +103,7 @@ randomClaim ClientState{..} = do
     , cSource = sid
     , cTarget = tid
     }
+
 
 randomValidMove :: ClientState -> IO Move
 randomValidMove cs = loop 0
@@ -114,12 +117,36 @@ randomValidMove cs = loop 0
         else loop (n + 1)
 
 
+findBestMove :: [Move] -> ClientState -> Move
+findBestMove moves cs@ClientState{..} =
+    fst $ maximumBy (\(_, x) (_, y) -> compare x y) scoredMoves
+  where
+    scoredMoves = map (\m -> (m, scoreMoveForMe m)) moves
+    scoreMoveForMe m = case find (\Score{..} -> sPunter == csPunterId) (scoreMove m) of
+      Just Score{..} -> sScore
+      Nothing -> 0
+    scoreMove m = scores $ cs {csClaimMap = insertMove csClaimMap m}
+
+
+makeClaim :: ClientState -> River -> Move
+makeClaim ClientState{..} River{..} = Claim
+  { cPunter = csPunterId
+  , cSource = rSource
+  , cTarget = rTarget
+  }
+
+
+eagerMove :: ClientState -> IO Move
+eagerMove cs = do
+  let potentialMoves = map (makeClaim cs) $ freeRivers cs
+  let move = findBestMove potentialMoves cs
+  return move
+
+
 makeMove :: ClientState -> IO (Move, ClientState)
 makeMove cs@ClientState{..} = do
-  --
-  -- TODO: Do something useful here
-  --
-  move <- randomValidMove cs
+  move <- eagerMove cs
+  -- move <- randomValidMove cs
   return (move, cs)
 
 
@@ -165,8 +192,7 @@ handleOfflineServerMessage msg =
       note $ "Last moves: " ++ show snMoves
       note $ "Claim map: " ++ show newClaimMap
       note $ "Scores: " ++ show (scores lastCs)
-      note $ "Server Scores: " ++ show snScores
-      note $ "Client State: " ++ show cs
+      note $ "\nServer Scores: " ++ show snScores
       return Exit
     TimeoutNotice{..} ->
       return Wait
