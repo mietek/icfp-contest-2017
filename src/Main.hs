@@ -157,6 +157,17 @@ makeClaim ClientState{..} River{..} = Claim
   , cTarget = rTarget
   }
 
+fancyMove :: ClientState -> IO Move
+fancyMove cs = do
+  mbox <- newEmptyMVar
+  ibox1 <- newMVar (Input cs)
+  ibox2 <- newMVar (Input cs)
+  _ <- forkIO (timer mbox 990000)
+  sid1 <- forkIO (simulator mbox ibox1)
+  sid2 <- forkIO (simulator mbox ibox2)
+  Output (finO, s) <- supervisor mbox (Input cs) (Output (Pass { pPunter = csPunterId cs}, 0.0))
+  return finO
+
 
 eagerMove :: ClientState -> IO Move
 eagerMove cs = do
@@ -167,7 +178,7 @@ eagerMove cs = do
 
 makeMove :: ClientState -> IO (Move, ClientState)
 makeMove cs@ClientState{..} = do
-  move <- eagerMove cs
+  move <- fancyMove cs
   -- move <- randomValidMove cs
   return (move, cs)
 
@@ -300,11 +311,31 @@ simulator mbox ibox = loop
   where
     loop :: IO ()
     loop = do
-      Input n <- takeMVar ibox
+      Input cs <- takeMVar ibox
       threadDelay 100000
-      r <- randomRIO (0, 10)
-      putMVar mbox (Result (Output (n + r)) ibox)
+      m <- randomValidMove cs
+      let s = value $ cs {csClaimMap = insertMove (csClaimMap cs) m}
+      putMVar mbox (Result (Output (m, s)) ibox)
       loop
+
+supervisor :: MsgBox -> Input -> Output -> IO Output
+supervisor mbox initI initO = loop initI initO
+  where
+    loop :: Input -> Output -> IO Output
+    loop i bestO = do
+      msg <- takeMVar mbox
+      case msg of
+        Result newBestO ibox | newBestO `isBetterThan` bestO -> do
+          putStrLn $ "New best: " ++ show newBestO
+          putMVar ibox i
+          loop i newBestO
+        Result o ibox -> do
+          putStrLn $ "Ignored:  " ++ show o
+          putMVar ibox i
+          loop i bestO
+        Timeout -> do
+          putStrLn "Timeout"
+          return bestO
 
 timer :: MsgBox -> Int -> IO ()
 timer mbox t = do

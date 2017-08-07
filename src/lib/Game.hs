@@ -108,4 +108,4 @@ value cs@ClientState{..} =
     scoreComponent = (fromIntegral myScore) / (fromIntegral allScores)
     minesComponent = minesScore cs
   in
-    0.7 * scoreComponent + 0.3 * minesComponent
+    0.95 * scoreComponent + 0.05 * minesComponent
