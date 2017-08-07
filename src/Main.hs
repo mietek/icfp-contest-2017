@@ -18,7 +18,7 @@ import Protocol
 import Game
 
 
-newtype Input = Input ClientState
+newtype Input = Input (ClientState, [Move])
   deriving (Eq, Ord, Show)
 
 newtype Output = Output (Move, Float)
@@ -160,12 +160,13 @@ makeClaim ClientState{..} River{..} = Claim
 fancyMove :: ClientState -> IO Move
 fancyMove cs = do
   mbox <- newEmptyMVar
-  ibox1 <- newMVar (Input cs)
-  ibox2 <- newMVar (Input cs)
-  _ <- forkIO (timer mbox 990000)
+  let ms =  map (makeClaim cs) $ freeRivers cs
+  ibox1 <- newMVar (Input (cs, ms))
+  ibox2 <- newMVar (Input (cs, ms))
+  _ <- forkIO (timer mbox 900000)
   sid1 <- forkIO (simulator mbox ibox1)
   sid2 <- forkIO (simulator mbox ibox2)
-  Output (finO, s) <- supervisor mbox (Input cs) (Output (Pass { pPunter = csPunterId cs}, 0.0))
+  Output (finO, s) <- supervisor mbox (Input (cs, ms)) (Output (Pass { pPunter = csPunterId cs}, 0.0))
   return finO
 
 
@@ -211,7 +212,7 @@ handleOfflineServerMessage msg =
       cs@ClientState{..} <- assertJust gqState "missing state in gameplay query"
       let newClaimMap = insertMoves csClaimMap gqMoves
           csBeforeMove = cs { csClaimMap = newClaimMap }
-      note $ "Claim map: " ++ show newClaimMap
+      -- note $ "Claim map: " ++ show newClaimMap
       (move, csAfterMove) <- makeMove csBeforeMove
       note $ "Scores: " ++ show (scores csAfterMove)
       return $ Reply $ GameplayReply
@@ -222,8 +223,8 @@ handleOfflineServerMessage msg =
       cs@ClientState{..} <- assertJust snState "missing state in scoring notice"
       let newClaimMap = insertMoves csClaimMap snMoves
           lastCs = cs { csClaimMap = newClaimMap }
-      note $ "Last moves: " ++ show snMoves
-      note $ "Claim map: " ++ show newClaimMap
+      -- note $ "Last moves: " ++ show snMoves
+      -- note $ "Claim map: " ++ show newClaimMap
       note $ "Scores: " ++ show (scores lastCs)
       note $ "\nServer Scores: " ++ show snScores
       return Exit
@@ -311,9 +312,9 @@ simulator mbox ibox = loop
   where
     loop :: IO ()
     loop = do
-      Input cs <- takeMVar ibox
-      threadDelay 100000
-      m <- randomValidMove cs
+      Input (cs, ms) <- takeMVar ibox
+      r <- randomRIO (0, (length ms) - 1)
+      let m = ms !! r
       let s = value $ cs {csClaimMap = insertMove (csClaimMap cs) m}
       putMVar mbox (Result (Output (m, s)) ibox)
       loop
@@ -326,15 +327,15 @@ supervisor mbox initI initO = loop initI initO
       msg <- takeMVar mbox
       case msg of
         Result newBestO ibox | newBestO `isBetterThan` bestO -> do
-          putStrLn $ "New best: " ++ show newBestO
+          -- putStrLn $ "New best: " ++ show newBestO
           putMVar ibox i
           loop i newBestO
         Result o ibox -> do
-          putStrLn $ "Ignored:  " ++ show o
+          -- putStrLn $ "Ignored:  " ++ show o
           putMVar ibox i
           loop i bestO
         Timeout -> do
-          putStrLn "Timeout"
+          -- putStrLn "Timeout"
           return bestO
 
 timer :: MsgBox -> Int -> IO ()
