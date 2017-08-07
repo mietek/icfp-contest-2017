@@ -36,11 +36,13 @@ main = do
   ibox1 <- newMVar initialInput
   ibox2 <- newMVar initialInput
   _ <- forkIO (timer mbox 1000000)
-  _ <- forkIO (simulator mbox ibox1)
-  _ <- forkIO (simulator mbox ibox2)
+  sid1 <- forkIO (simulator mbox ibox1)
+  sid2 <- forkIO (simulator mbox ibox2)
   putStrLn $ "Initial input: " ++ show initialInput ++ "\n"
   finO <- supervisor mbox initialInput initialOutput
   putStrLn $ "\nFinal output: " ++ show finO
+  killThread sid1
+  killThread sid2
 
 
 supervisor :: MsgBox -> Input -> Output -> IO Output
