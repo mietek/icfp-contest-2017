@@ -6,7 +6,8 @@ import qualified Data.ByteString.Lazy.Char8 as LBS
 import qualified Network.Socket as N
 import System.Exit (exitSuccess)
 import System.IO (Handle, IOMode(..), hPutStrLn, stderr, stdin, stdout)
-import System.Random (Random, randomRIO)
+import Control.Concurrent
+import System.Random
 import Data.List (maximumBy, find)
 
 import qualified Data.IntMap.Strict as IM
@@ -16,6 +17,21 @@ import ClientState
 import Protocol
 import Game
 
+
+newtype Input = Input ClientState
+  deriving (Eq, Ord, Show)
+
+newtype Output = Output (Move, Float)
+  deriving (Eq, Ord, Show)
+
+isBetterThan :: Output -> Output -> Bool
+isBetterThan (Output (_, s1)) (Output (_, s2)) = s1 > s2
+
+type InputBox = MVar Input
+
+data Msg = Result Output InputBox | Timeout
+
+type MsgBox = MVar Msg
 
 -- NOTE: This assumes no message is smaller than 9:{"x":"y"}
 getSizedMessage :: Handle -> IO BS.ByteString
@@ -278,6 +294,22 @@ onlineMain serverHost serverPort punterName = do
       (response, newCS) <- handleOnlineServerMessage cs msg
       performClientResponse hdl response
       loop hdl newCS
+
+simulator :: MsgBox -> InputBox -> IO ()
+simulator mbox ibox = loop
+  where
+    loop :: IO ()
+    loop = do
+      Input n <- takeMVar ibox
+      threadDelay 100000
+      r <- randomRIO (0, 10)
+      putMVar mbox (Result (Output (n + r)) ibox)
+      loop
+
+timer :: MsgBox -> Int -> IO ()
+timer mbox t = do
+  threadDelay t
+  putMVar mbox Timeout
 
 
 main :: IO ()
