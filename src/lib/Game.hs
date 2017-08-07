@@ -69,10 +69,10 @@ scores ClientState{..} =
         reachableNeighbours = filter (reachable csClaimMap p s) $ neighboursList csSiteMap s
 
 isMyRiver :: ClientState -> RiverId -> Bool
-isMyRiver cs@ClientState{..} rId =
+isMyRiver ClientState{..} rId =
   case (lookupClaim csClaimMap rId) of
-    Just csPunterId -> True
-    _               -> False
+    Just pId -> pId == csPunterId
+    _        -> False
 
 isMyMine :: ClientState -> SiteId -> Bool
 isMyMine cs@ClientState{..} sId =
@@ -108,4 +108,4 @@ value cs@ClientState{..} =
     scoreComponent = (fromIntegral myScore) / (fromIntegral allScores)
     minesComponent = minesScore cs
   in
-    scoreComponent + minesComponent
+    0.7 * scoreComponent + 0.3 * minesComponent
