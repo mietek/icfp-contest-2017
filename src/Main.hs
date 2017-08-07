@@ -116,9 +116,15 @@ randomValidMove cs = loop 0
         then return move
         else loop (n + 1)
 
+findBestValueMove :: [Move] -> ClientState -> Move
+findBestValueMove moves cs@ClientState{..} =
+    fst $ maximumBy (\(_, x) (_, y) -> compare x y) scoredMoves
+  where
+    scoredMoves = map (\m -> (m, scoreMove m)) moves
+    scoreMove m = value $ cs {csClaimMap = insertMove csClaimMap m}
 
-findBestMove :: [Move] -> ClientState -> Move
-findBestMove moves cs@ClientState{..} =
+findBestScoreMove :: [Move] -> ClientState -> Move
+findBestScoreMove moves cs@ClientState{..} =
     fst $ maximumBy (\(_, x) (_, y) -> compare x y) scoredMoves
   where
     scoredMoves = map (\m -> (m, scoreMoveForMe m)) moves
@@ -139,7 +145,7 @@ makeClaim ClientState{..} River{..} = Claim
 eagerMove :: ClientState -> IO Move
 eagerMove cs = do
   let potentialMoves = map (makeClaim cs) $ freeRivers cs
-  let move = findBestMove potentialMoves cs
+  let move = findBestValueMove potentialMoves cs
   return move
 
 

@@ -4,6 +4,8 @@ import Definitions
 import ClientState
 import Control.Applicative ((<|>))
 import qualified Data.IntMap.Strict as IM
+import qualified Data.IntSet as IS
+import Data.List (find)
 
 type Scores = [Score]
 
@@ -65,3 +67,45 @@ scores ClientState{..} =
         d = distance csSiteMap m s
         nextSites = filter (\x -> not . elem x $ (ss++s:visited)) $ reachableNeighbours
         reachableNeighbours = filter (reachable csClaimMap p s) $ neighboursList csSiteMap s
+
+isMyRiver :: ClientState -> RiverId -> Bool
+isMyRiver cs@ClientState{..} rId =
+  case (lookupClaim csClaimMap rId) of
+    Just csPunterId -> True
+    _               -> False
+
+isMyMine :: ClientState -> SiteId -> Bool
+isMyMine cs@ClientState{..} sId =
+  let
+    mine = lookupSite csSiteMap sId
+    neighbours = case mine of
+      Just SiteInfo{..} -> unSiteSet siNeighbours
+      Nothing -> IS.empty
+    mineRivers = IS.union
+      (IS.map (\nId -> riverId sId nId) neighbours)
+      (IS.map (\nId -> riverId nId sId) neighbours)
+    myRivers = IS.filter (isMyRiver cs) mineRivers
+  in
+    IS.size myRivers > 0
+
+minesScore :: ClientState -> Float
+minesScore cs@ClientState{..} =
+  let
+    allMines = unSiteSet csMines
+    myMines = IS.filter (isMyMine cs) allMines
+    myMinesCount = IS.size myMines
+    allMinesCount = IS.size allMines
+  in
+    (fromIntegral myMinesCount) / (fromIntegral allMinesCount)
+
+value :: ClientState -> Float
+value cs@ClientState{..} =
+  let
+    myScore = case find (\Score{..} -> sPunter == csPunterId) (scores cs) of
+      Just Score{..} -> sScore
+      Nothing -> 0
+    allScores = foldr (\Score{..} t -> t + sScore) 0 $ scores cs
+    scoreComponent = (fromIntegral myScore) / (fromIntegral allScores)
+    minesComponent = minesScore cs
+  in
+    scoreComponent + minesComponent
