@@ -31,6 +31,7 @@ library
 executable punter
   hs-source-dirs:         src
   main-is:                Main.hs
+  other-modules:          Options
   default-language:       Haskell2010
   default-extensions:     OverloadedStrings,
                           RecordWildCards
@@ -48,6 +49,8 @@ test-suite test
   type:                   exitcode-stdio-1.0
   hs-source-dirs:         test
   main-is:                Test.hs
+  other-modules:          ProtocolTest,
+                          RulesTest
   default-language:       Haskell2010
   default-extensions:     OverloadedStrings,
                           RecordWildCards
